@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 use std::{env, fs, io};
-use winreg_util::export::{export, ExportKey};
-use winreg_util::key::Key::{HkeyClassesRoot, HkeyLocalMachine, HkeyUsers};
+use winreg_export::export::{export, ExportKey};
+use winreg_export::key::Key::{HkeyClassesRoot, HkeyLocalMachine, HkeyUsers};
 
 fn main() -> io::Result<()> {
     export_test()
