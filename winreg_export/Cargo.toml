@@ -1,5 +1,5 @@
 [package]
-name = "winreg-export"
+name = "winreg_export"
 version = "0.1.0"
 edition = "2021"
 

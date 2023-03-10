@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "winreg-export",
-    "winreg-cli"
+    "winreg_export",
+    "winreg_cli"
 ]
