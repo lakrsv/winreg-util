@@ -2,5 +2,6 @@
 
 members = [
     "winreg_export",
+    "winreg_interrogate",
     "winreg_cli"
 ]

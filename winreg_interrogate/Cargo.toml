@@ -1,11 +1,8 @@
 [package]
-name = "winreg_cli"
+name = "winreg_interrogate"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winreg_export = { path = "../winreg_export" }
-clap = { version = "4.1.8", features = ["derive", "unstable-v5"] }
-itertools = "0.10.5"

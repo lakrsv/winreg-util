@@ -8,7 +8,13 @@ pub struct ExportError {
     msg: String,
 }
 
-#[derive(Debug)]
+impl ExportError {
+    pub fn msg(&self) -> &str {
+        &self.msg
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ExportKey {
     root: Key,
     sub_keys: HashSet<String>,
