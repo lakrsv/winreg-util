@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+winreg_common = { path = "../winreg_common" }
 winreg_export = { path = "../winreg_export" }
 clap = { version = "4.1.8", features = ["derive", "unstable-v5"] }
 itertools = "0.10.5"

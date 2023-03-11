@@ -2,7 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 use std::{fs, io};
 use winreg_cli::{Cli, Commands, ExportArgs, InterrogateArgs};
-use winreg_export::export::export;
+use winreg_export::export;
 
 fn main() -> io::Result<()> {
     let args = Cli::parse();

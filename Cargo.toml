@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "winreg_common",
     "winreg_export",
     "winreg_interrogate",
     "winreg_cli"

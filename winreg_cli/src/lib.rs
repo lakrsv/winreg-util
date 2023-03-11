@@ -1,8 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use std::collections::HashSet;
-use winreg_export::export::ExportKey;
-use winreg_export::key::Key;
+use winreg_export::ExportKey;
+use winreg_common::Key;
 /// Program used to export or interrogate registry hive files
 #[derive(Parser, Clone, Debug)]
 #[command(author, version, about, long_about = None)]
