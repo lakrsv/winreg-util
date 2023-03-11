@@ -65,7 +65,6 @@ impl ExportArgs {
                         grouped
                             .1
                             .into_iter()
-                            .map(|s| s.to_string())
                             .collect::<Vec<String>>(),
                     ),
                 )
