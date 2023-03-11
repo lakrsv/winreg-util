@@ -1,7 +1,7 @@
-use winreg_common::Key;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
+use winreg_common::Key;
 
 #[derive(Debug, Clone)]
 pub struct ExportError {

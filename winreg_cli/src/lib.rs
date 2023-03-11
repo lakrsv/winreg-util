@@ -1,8 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use std::collections::HashSet;
-use winreg_export::ExportKey;
 use winreg_common::Key;
+use winreg_export::ExportKey;
 /// Program used to export or interrogate registry hive files
 #[derive(Parser, Clone, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -44,15 +44,17 @@ impl ExportArgs {
             .keys
             .iter()
             .map(|key| key.to_uppercase().replace("\\\\", "\\"))
-            .filter_map(|key| return match Key::try_from(key.as_str()) {
-                Ok(root) => {
-                    let sub_key = key[key.find('\\').unwrap()+1..].to_string();
-                    Some((root, sub_key))
-                }
-                Err(e) => {
-                    eprintln!("Failed parsing key: {}", e.msg());
-                    None
-                }
+            .filter_map(|key| {
+                return match Key::try_from(key.as_str()) {
+                    Ok(root) => {
+                        let sub_key = key[key.find('\\').unwrap() + 1..].to_string();
+                        Some((root, sub_key))
+                    }
+                    Err(e) => {
+                        eprintln!("Failed parsing key: {}", e.msg());
+                        None
+                    }
+                };
             })
             .into_group_map()
             .into_iter()
