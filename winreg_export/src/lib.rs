@@ -33,7 +33,7 @@ pub fn export(keys: Vec<ExportKey>, output_dir: PathBuf) -> Result<(), ExportErr
     for key in keys {
         for sub_key in key.sub_keys {
             export_key(&key.root, sub_key, output_dir.clone())
-                .unwrap_or_else(|e| println!("Failed exporting key. Error: {:?}", e));
+                .unwrap_or_else(|e| println!("Failed exporting key. Error: {}", e.msg()));
         }
     }
     Ok(())
@@ -42,10 +42,10 @@ pub fn export(keys: Vec<ExportKey>, output_dir: PathBuf) -> Result<(), ExportErr
 fn export_key(root: &Key, sub_key: String, mut output_dir: PathBuf) -> Result<(), ExportError> {
     let reg_key = format!("{}\\{}", root.get_name(), sub_key);
 
-    output_dir.push(format!("{}-{}.reg", root.get_name(), sub_key));
+    output_dir.push(format!("{}-{}.dat", root.get_name(), sub_key));
 
     let command = format!(
-        "reg export {} {}",
+        "reg save {} {}",
         reg_key,
         output_dir.as_path().to_str().unwrap()
     );

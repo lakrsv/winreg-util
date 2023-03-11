@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 winreg_common = { path = "../winreg_common" }
 winreg_export = { path = "../winreg_export" }
+winreg_interrogate = { path = "../winreg_interrogate" }
 clap = { version = "4.1.8", features = ["derive", "unstable-v5"] }
 itertools = "0.10.5"

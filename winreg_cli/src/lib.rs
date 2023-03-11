@@ -43,14 +43,15 @@ impl ExportArgs {
         let keys: Vec<ExportKey> = self
             .keys
             .iter()
-            .filter_map(|key| match Key::try_from(key.as_str()) {
+            .map(|key| key.to_uppercase().replace("\\\\", "\\"))
+            .filter_map(|key| return match Key::try_from(key.as_str()) {
                 Ok(root) => {
-                    let sub_key = &key[root.get_name().len() + 2..];
-                    return Some((root, sub_key));
+                    let sub_key = key[key.find('\\').unwrap()+1..].to_string();
+                    Some((root, sub_key))
                 }
                 Err(e) => {
                     eprintln!("Failed parsing key: {}", e.msg());
-                    return None;
+                    None
                 }
             })
             .into_group_map()

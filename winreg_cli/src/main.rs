@@ -37,10 +37,10 @@ fn run_export(args: ExportArgs) -> io::Result<()> {
         }
     }
 
-    println!("Export completed");
     Ok(())
 }
 
 fn run_interrogate(args: InterrogateArgs) -> io::Result<()> {
-    todo!()
+    winreg_interrogate::test();
+    Ok(())
 }
