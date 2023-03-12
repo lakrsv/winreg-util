@@ -2,9 +2,17 @@ use bytes::{Buf, Bytes};
 use std::{fs, io};
 use std::io::stdin;
 use std::path::Path;
+use std::time::Instant;
 use winreg_common::hive::{HiveBaseBlock, HiveBinCell, HiveBinHeader};
 
 pub fn test() {
+    let start = Instant::now();
+    parse_registry();
+    let duration = start.elapsed();
+    println!("Time elapsed in parse_registry(): {:?}", duration);
+}
+
+fn parse_registry(){
     let mut bytes = Bytes::from(fs::read(Path::new("C://Users/lakrs/Documents/CreativeWork/RustProjects/winreg_util/export-test/HKEY_LOCAL_MACHINE-SOFTWARE.dat")).unwrap());
 
     let start = bytes.remaining();
@@ -19,19 +27,21 @@ pub fn test() {
     );
 
     let mut cells = vec![];
+    let mut blocks = 0;
 
+    // Parallelise each block with rayon?
     loop {
+        blocks += 1;
         let hive_bin_start_pos = bytes.remaining();
         if hive_bin_start_pos == 0 {
             break;
         }
         let hive_bin_header = HiveBinHeader::build(&mut bytes).unwrap();
-
         // println!("");
         // println!("Hive Bin Header");
         // println!("{:?}", hive_bin_header);
         // println!("");
-        println!("Bytes read: {}", start - bytes.remaining());
+        //println!("Bytes read: {}", start - bytes.remaining());
         while let Some(cell) =
             HiveBinCell::build(&mut bytes, hive_bin_start_pos, hive_bin_header.size())
         {
@@ -53,6 +63,7 @@ pub fn test() {
         }
     }
     println!("Parsed the entire registry");
+    println!("Got a total of {} hive bin blocks", blocks);
     println!("Got a total of {} cells", cells.len());
     // let mut buffer = String::new();
     // let stdin = io::stdin();
