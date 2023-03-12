@@ -19,12 +19,15 @@ pub fn test() {
 
     loop {
         let hive_bin_start_pos = bytes.remaining();
+        if hive_bin_start_pos == 0 {
+            break;
+        }
         let hive_bin_header = HiveBinHeader::build(&mut bytes).unwrap();
 
-        println!("");
-        println!("Hive Bin Header");
-        println!("{:?}", hive_bin_header);
-        println!("");
+        // println!("");
+        // println!("Hive Bin Header");
+        // println!("{:?}", hive_bin_header);
+        // println!("");
 
         println!("Bytes read: {}", start - bytes.remaining());
         while let Some(cell) =
@@ -33,17 +36,18 @@ pub fn test() {
             let bytes_read = start - bytes.remaining();
             let hive_bin_bytes_read = hive_bin_start_pos - bytes.remaining();
 
-            println!("Bytes read: {}", bytes_read);
-            println!("Hive Bin Bytes read {}", hive_bin_bytes_read);
+            // println!("Bytes read: {}", bytes_read);
+            // println!("Hive Bin Bytes read {}", hive_bin_bytes_read);
+            //
+            // println!("Hive Bin Cell");
+            // println!("{:?}", cell);
+            // println!("");
 
-            println!("Hive Bin Cell");
-            println!("{:?}", cell);
-            println!("");
-
-            if let CellData::NamedKey(key) = cell.cell_data() {
-                // Got Key Node
-                println!("Key Node Name: {}", key.key_name());
-            }
+            // if let CellData::NamedKey(key) = cell.cell_data() {
+            //     // Got Key Node
+            //     println!("Key Node Name: {}", key.key_name());
+            // }
         }
     }
+    println!("Parsed the entire registry");
 }
