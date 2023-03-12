@@ -6,3 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+winreg_common = { path = "../winreg_common" }
+bytes = { version = "1.4.0", features = ["serde"] }
+utf16string = "0.2.0"

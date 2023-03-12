@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
-use winreg_common::Key;
+use winreg_common::root::RootKey;
 
 #[derive(Debug, Clone)]
 pub struct ExportError {
@@ -16,12 +16,12 @@ impl ExportError {
 
 #[derive(Debug, Clone)]
 pub struct ExportKey {
-    root: Key,
+    root: RootKey,
     sub_keys: HashSet<String>,
 }
 
 impl ExportKey {
-    pub fn new(root: Key, sub_keys: HashSet<String>) -> Self {
+    pub fn new(root: RootKey, sub_keys: HashSet<String>) -> Self {
         ExportKey { root, sub_keys }
     }
 }
@@ -39,7 +39,7 @@ pub fn export(keys: Vec<ExportKey>, output_dir: PathBuf) -> Result<(), ExportErr
     Ok(())
 }
 
-fn export_key(root: &Key, sub_key: String, mut output_dir: PathBuf) -> Result<(), ExportError> {
+fn export_key(root: &RootKey, sub_key: String, mut output_dir: PathBuf) -> Result<(), ExportError> {
     let reg_key = format!("{}\\{}", root.get_name(), sub_key);
 
     output_dir.push(format!("{}-{}.dat", root.get_name(), sub_key));
