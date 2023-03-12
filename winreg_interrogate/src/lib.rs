@@ -1,7 +1,8 @@
 use bytes::{Buf, Bytes};
-use std::fs;
+use std::{fs, io};
+use std::io::stdin;
 use std::path::Path;
-use winreg_common::hive::{CellData, HiveBaseBlock, HiveBinCell, HiveBinHeader};
+use winreg_common::hive::{HiveBaseBlock, HiveBinCell, HiveBinHeader};
 
 pub fn test() {
     let mut bytes = Bytes::from(fs::read(Path::new("C://Users/lakrs/Documents/CreativeWork/RustProjects/winreg_util/export-test/HKEY_LOCAL_MACHINE-SOFTWARE.dat")).unwrap());
@@ -17,6 +18,8 @@ pub fn test() {
         &base_block
     );
 
+    let mut cells = vec![];
+
     loop {
         let hive_bin_start_pos = bytes.remaining();
         if hive_bin_start_pos == 0 {
@@ -28,11 +31,11 @@ pub fn test() {
         // println!("Hive Bin Header");
         // println!("{:?}", hive_bin_header);
         // println!("");
-
         println!("Bytes read: {}", start - bytes.remaining());
         while let Some(cell) =
             HiveBinCell::build(&mut bytes, hive_bin_start_pos, hive_bin_header.size())
         {
+            cells.push(cell);
             let bytes_read = start - bytes.remaining();
             let hive_bin_bytes_read = hive_bin_start_pos - bytes.remaining();
 
@@ -50,4 +53,11 @@ pub fn test() {
         }
     }
     println!("Parsed the entire registry");
+    println!("Got a total of {} cells", cells.len());
+    // let mut buffer = String::new();
+    // let stdin = io::stdin();
+    // for cell in cells {
+    //     println!("{:?}", cell);
+    //     stdin.read_line(&mut buffer).unwrap();
+    // }
 }
