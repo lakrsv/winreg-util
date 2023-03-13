@@ -27,12 +27,9 @@ fn parse_registry(){
         &base_block
     );
 
-    let mut blocks = 0;
-
     let mut my_blocks = vec![];
     let mut offset = 0;
     while start > offset {
-        //println!("Getting block!");
         let hive_bin_header = HiveBinHeader::build(&mut &bytes[offset..offset + 32]).unwrap();
         if offset + hive_bin_header.size() as usize >= bytes.len() {
             break;
@@ -55,21 +52,7 @@ fn parse_registry(){
         .flatten()
         .collect::<Vec<HiveBinCell>>();
 
-    // loop {
-    //     let hive_bin_start_pos = bytes.remaining();
-    //     if hive_bin_start_pos == 0 {
-    //         break;
-    //     }
-    //     blocks += 1;
-    //     let hive_bin_header = HiveBinHeader::build(&mut bytes).unwrap();
-    //     while let Some(cell) =
-    //         HiveBinCell::build(&mut bytes, hive_bin_start_pos, hive_bin_header.size())
-    //     {
-    //         cells.push(cell);
-    //     }
-    // }
     println!("Parsed the entire registry");
     println!("Got a total of {} hive bin blocks", block_count);
-    println!("Got a total of {} cells", my_cells.len());
-    //println!("Got a total of {} cells", cells.len());
+    println!("Got a total of {} cells", &my_cells.len());
 }

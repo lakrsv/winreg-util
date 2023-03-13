@@ -62,14 +62,6 @@ pub struct HiveBinHeader {
 pub struct HiveBinCell {
     size: i32,
     cell_data: CellData,
-    //index_leaf: Option<IndexLeaf>,
-    // fast_leaf: Option<FastLeaf>,
-    // hash_leaf: Option<HashLeaf>,
-    // index_root: Option<IndexRoot>,
-    // key_node: Option<KeyNode>,
-    // key_value: Option<KeyValue>,
-    // key_security: Option<KeySecurity>,
-    // big_data: Option<BigData>,
 }
 
 #[derive(Debug)]
@@ -563,7 +555,6 @@ fn read_ascii_string(buf: &mut impl Buf, length: usize) -> Result<String, FromUt
     for _ in 0..length {
         result.push(buf.get_u8());
     }
-    //String::from_utf8(result.to_ascii_lowercase())
     String::from_utf8(result.to_ascii_lowercase())
 }
 
@@ -573,7 +564,7 @@ fn read_utf16_le_string(
 ) -> Result<WString<LittleEndian>, Utf16Error> {
     let mut result = vec![];
     for _ in 0..length {
-        result.push(buf.get_u8())
+        result.push(buf.get_u8());
     }
     WString::from_utf16le(result)
 }
