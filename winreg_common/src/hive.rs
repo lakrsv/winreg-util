@@ -489,15 +489,17 @@ impl ValueKey {
         let data_type = buf.get_u32_le();
         let flags = buf.get_u16_le();
         let spare = buf.get_u16_le();
-        let value_name_string = read_ascii_string(buf, name_length as usize).map_err(|err| {
-            dbg!(name_length);
-            dbg!(data_size);
-            dbg!(data_offset);
-            dbg!(data_type);
-            dbg!(flags);
-            dbg!(spare);
-            err
-        }).unwrap_or("ERROR".to_string());
+        let value_name_string = read_ascii_string(buf, name_length as usize)
+            .map_err(|err| {
+                dbg!(name_length);
+                dbg!(data_size);
+                dbg!(data_offset);
+                dbg!(data_type);
+                dbg!(flags);
+                dbg!(spare);
+                err
+            })
+            .unwrap_or("ERROR".to_string());
         Ok(ValueKey {
             signature,
             name_length,
@@ -545,7 +547,7 @@ impl DataBlock {
         Ok(DataBlock {
             signature,
             number_of_segments,
-            data_block_list_offset
+            data_block_list_offset,
         })
     }
 }
