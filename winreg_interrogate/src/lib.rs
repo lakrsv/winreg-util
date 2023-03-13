@@ -1,10 +1,11 @@
 use bytes::{Buf, Bytes};
 use rayon::prelude::*;
-use std::io::stdin;
+use std::fs;
 use std::path::Path;
 use std::time::Instant;
-use std::{fs, io};
-use winreg_common::hive::{HiveBaseBlock, HiveBinCell, HiveBinHeader};
+use winreg_common::hive::{
+    HiveBaseBlock, HiveBin, HiveBinCell, HiveBinHeader, HiveParseError, HivePrimaryFile,
+};
 
 pub fn test() {
     let start = Instant::now();
@@ -20,13 +21,6 @@ fn parse_registry() {
 
     let base_block = HiveBaseBlock::build(&mut bytes).unwrap();
 
-    println!("Base Block");
-    println!(
-        "File Name: {}, data = {:?}",
-        &base_block.file_name(),
-        &base_block
-    );
-
     let mut my_blocks = vec![];
     let mut offset = 0;
     while start > offset {
@@ -39,21 +33,19 @@ fn parse_registry() {
     }
     let block_count = my_blocks.len();
 
-    let mut my_cells = my_blocks
+    let hive_bins = my_blocks
         .par_iter_mut()
         .map(|bin| {
-            let start_pos = bin.remaining();
             let mut cells: Vec<HiveBinCell> = vec![];
             let header = HiveBinHeader::build(bin).unwrap();
-            while let Some(cell) = HiveBinCell::build(bin, start_pos, header.size()) {
+            while let Some(cell) = HiveBinCell::build(bin) {
                 cells.push(cell);
             }
-            return cells;
+            return HiveBin::new(header, cells);
         })
-        .flatten()
-        .collect::<Vec<HiveBinCell>>();
+        .collect();
 
+    let primary_file = HivePrimaryFile::new(base_block, hive_bins);
     println!("Parsed the entire registry");
     println!("Got a total of {} hive bin blocks", block_count);
-    println!("Got a total of {} cells", &my_cells.len());
 }

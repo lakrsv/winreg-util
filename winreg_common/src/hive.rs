@@ -2,14 +2,17 @@ use bytes::Buf;
 use std::string::FromUtf8Error;
 use utf16string::{LittleEndian, Utf16Error, WStr, WString};
 
-const INDEX_LEAF: &str = "li";
-const FAST_LEAF: &str = "lf";
-const HASH_LEAF: &str = "lh";
-const INDEX_ROOT: &str = "ri";
-const NAMED_KEY: &str = "nk";
-const VALUE_KEY: &str = "vk";
-const KEY_SECURITY: &str = "sk";
-const DATA_BLOCK: &str = "db";
+const HIVE_HEADER_SIZE: usize = 32;
+const HIVE_BASE_BLOCK_SIG: &str = "regf";
+const HIVE_BIN_HEADER_SIG: &str = "hbin";
+const INDEX_LEAF_SIG: &str = "li";
+const FAST_LEAF_SIG: &str = "lf";
+const HASH_LEAF_SIG: &str = "lh";
+const INDEX_ROOT_SIG: &str = "ri";
+const NAMED_KEY_SIG: &str = "nk";
+const VALUE_KEY_SIG: &str = "vk";
+const KEY_SECURITY_SIG: &str = "sk";
+const DATA_BLOCK_SIG: &str = "db";
 
 #[derive(Debug)]
 /// Format specification: https://github.com/libyal/libregf/blob/main/documentation/Windows%20NT%20Registry%20File%20(REGF)%20format.asciidoc
@@ -20,7 +23,6 @@ pub struct HivePrimaryFile {
 
 #[derive(Debug)]
 pub struct HiveBaseBlock {
-    signature: String,
     primary_sequence_number: u32,
     secondary_sequence_number: u32,
     last_written_timestamp: u64,
@@ -28,10 +30,10 @@ pub struct HiveBaseBlock {
     minor_version: u32,
     file_type: u32,
     file_format: u32,
-    root_cell_offset: u32,
+    root_key_offset: u32,
     hive_bins_data_size: u32,
     clustering_factor: u32,
-    file_name: WString<LittleEndian>,
+    file_name: Vec<u8>,
     // reserved 396 bytes
     // reserved_0: [u8],
     checksum: u32,
@@ -49,7 +51,6 @@ pub struct HiveBin {
 
 #[derive(Debug)]
 pub struct HiveBinHeader {
-    signature: String,
     offset: u32,
     size: u32,
     // reserved 8 bytes
@@ -78,7 +79,6 @@ pub enum CellData {
 
 #[derive(Debug)]
 pub struct IndexLeaf {
-    signature: String,
     number_of_elements: u16,
     elements: Vec<IndexLeafElement>,
 }
@@ -90,7 +90,6 @@ pub struct IndexLeafElement {
 
 #[derive(Debug)]
 pub struct FastLeaf {
-    signature: String,
     number_of_elements: u16,
     elements: Vec<FastLeafElement>,
 }
@@ -98,12 +97,11 @@ pub struct FastLeaf {
 #[derive(Debug)]
 pub struct FastLeafElement {
     key_node_offset: u32,
-    name_hint: String,
+    name_hint: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct HashLeaf {
-    signature: String,
     number_of_elements: u16,
     elements: Vec<HashLeafElement>,
 }
@@ -116,7 +114,6 @@ pub struct HashLeafElement {
 
 #[derive(Debug)]
 pub struct IndexRoot {
-    signature: String,
     number_of_elements: u16,
     elements: Vec<IndexRootElement>,
 }
@@ -128,7 +125,6 @@ pub struct IndexRootElement {
 
 #[derive(Debug)]
 pub struct NamedKey {
-    signature: String,
     flags: u16,
     last_written_timestamp: u64,
     access_bits: u32,
@@ -148,36 +144,33 @@ pub struct NamedKey {
     work_var: u32,
     key_name_length: u16,
     class_name_length: u16,
-    key_name_string: String, // Or ASCII extended(?)
+    key_name: Vec<u8>, // Or ASCII extended(?)
 }
 
 #[derive(Debug)]
 pub struct ValueKey {
-    signature: String,
     name_length: u16,
     data_size: u32,
     data_offset: u32,
     data_type: u32,
     flags: u16,
     spare: u16,
-    value_name_string: String, // Or ASCII extneded(?)
+    value_name: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct SecurityKey {
-    signature: String,
     // reserved 2 bytes
     // reserved: [u8]
     previous_security_key_offset: u32,
     next_security_key_offset: u32,
     reference_count: u32,
     nt_security_descriptor_size: u32,
-    // security_descriptor: [u8]
+    nt_security_descriptor: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct DataBlock {
-    signature: String,
     number_of_segments: u16,
     data_block_list_offset: u32,
 }
@@ -186,16 +179,26 @@ pub struct DataBlock {
 pub struct HiveParseError;
 
 impl HivePrimaryFile {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        todo!()
+    pub fn new(base_block: HiveBaseBlock, hive_bins: Vec<HiveBin>) -> Self {
+        HivePrimaryFile {
+            base_block,
+            hive_bins,
+        }
+    }
+}
+
+impl HiveBin {
+    pub fn new(header: HiveBinHeader, cells: Vec<HiveBinCell>) -> Self {
+        HiveBin { header, cells }
     }
 }
 
 impl HiveBaseBlock {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        //println!("Starting hive base block at {}", buf.remaining());
-
-        let signature = read_ascii_string(buf, 4).unwrap(); //String::from(std::str::from_utf8(bytes.get(..4).unwrap()).unwrap());
+        let sig = &*read_arr(buf, 4);
+        if !(sig == HIVE_BASE_BLOCK_SIG.as_bytes()) {
+            return Err(HiveParseError);
+        }
         let primary_sequence_number = buf.get_u32_le();
         let secondary_sequence_number = buf.get_u32_le();
         let last_written_timestamp = buf.get_u64_le();
@@ -203,10 +206,10 @@ impl HiveBaseBlock {
         let minor_version = buf.get_u32_le();
         let file_type = buf.get_u32_le();
         let file_format = buf.get_u32_le();
-        let root_cell_offset = buf.get_u32_le();
+        let root_key_offset = buf.get_u32_le();
         let hive_bins_data_size = buf.get_u32_le();
         let clustering_factor = buf.get_u32_le();
-        let file_name = read_utf16_le_string(buf, 64).unwrap(); //WString::from_utf16le(Vec::from(bytes.get(..64).unwrap())).unwrap();
+        let file_name = read_arr(buf, 64);
 
         // Skip reserved sector (Has data on Windows 10). See specification
         buf.advance(396);
@@ -220,7 +223,6 @@ impl HiveBaseBlock {
         let boot_recover = buf.get_u32_le();
 
         Ok(HiveBaseBlock {
-            signature,
             primary_sequence_number,
             secondary_sequence_number,
             last_written_timestamp,
@@ -228,7 +230,7 @@ impl HiveBaseBlock {
             minor_version,
             file_type,
             file_format,
-            root_cell_offset,
+            root_key_offset,
             hive_bins_data_size,
             clustering_factor,
             file_name,
@@ -237,17 +239,14 @@ impl HiveBaseBlock {
             boot_recover,
         })
     }
-
-    pub fn file_name(&self) -> &WStr<LittleEndian> {
-        &self.file_name
-    }
 }
 
 impl HiveBinHeader {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        //println!("Starting hive bin header at {}", buf.remaining());
-
-        let signature = read_ascii_string(buf, 4).unwrap();
+        let sig = &*read_arr(buf, 4);
+        if !(sig == HIVE_BIN_HEADER_SIG.as_bytes()) {
+            return Err(HiveParseError);
+        }
         let offset = buf.get_u32_le();
         let size = buf.get_u32_le();
 
@@ -258,7 +257,6 @@ impl HiveBinHeader {
         let spare = buf.get_u32_le();
 
         Ok(HiveBinHeader {
-            signature,
             offset,
             size,
             timestamp,
@@ -275,54 +273,36 @@ impl HiveBinHeader {
 }
 
 impl HiveBinCell {
-    pub fn build(
-        buf: &mut impl Buf,
-        hive_bin_start_pos: usize,
-        hive_bin_size: u32,
-    ) -> Option<Self> {
+    pub fn build(buf: &mut impl Buf) -> Option<Self> {
         loop {
-            let start_pos = buf.remaining();
-            let size = buf.get_i32_le();
-            //dbg!(size);
-
-            let bin_bytes_read = hive_bin_start_pos - buf.remaining();
-            // println!(
-            //     "We have read {} bytes from the bin, the bin is {} bytes long",
-            //     bin_bytes_read, hive_bin_size
-            // );
-
-            if bin_bytes_read + size.abs() as usize > hive_bin_size as usize {
-                let advance = hive_bin_size as usize - bin_bytes_read;
-                //println!("Advancing {} and returning none", advance);
-                buf.advance(advance);
+            let data_start_pos = buf.remaining();
+            if data_start_pos - HIVE_HEADER_SIZE == 0 {
                 return None;
             }
 
+            let size = buf.get_i32_le();
             let cell_data = CellData::build(buf);
 
-            if let Err(e) = cell_data {
-                let end_pos = buf.remaining();
-                let walked = start_pos - end_pos;
-                let advance = size.abs() as usize - walked;
-                // println!(
-                //     "Got error, we have read {} bytes, but the total size is {}. Skipping {} bytes",
-                //     walked, size, advance
-                // );
-                buf.advance(advance);
-                continue;
+            match cell_data {
+                Ok(data) => {
+                    let end_pos = buf.remaining();
+                    let walked = data_start_pos - end_pos;
+                    let advance = size.abs() as usize - walked;
+                    buf.advance(advance);
+                    return Some(HiveBinCell {
+                        size,
+                        cell_data: data,
+                    });
+                }
+                Err(_) => {
+                    // Skip faulty cell(?) -- TODO: Is it really a bad cell though?
+                    let end_pos = buf.remaining();
+                    let walked = data_start_pos - end_pos;
+                    let advance = size.abs() as usize - walked;
+                    buf.advance(advance);
+                    continue;
+                }
             }
-
-            let cell_data = cell_data.unwrap();
-
-            let end_pos = buf.remaining();
-            let walked = start_pos - end_pos;
-            let advance = size.abs() as usize - walked;
-            // println!(
-            //     "We have read {} bytes, but the total size is {}. Skipping {} bytes",
-            //     walked, size, advance
-            // );
-            buf.advance(advance);
-            return Some(HiveBinCell { size, cell_data });
         }
     }
 
@@ -333,16 +313,17 @@ impl HiveBinCell {
 
 impl CellData {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = read_ascii_string(buf, 2).map_err(|e| HiveParseError)?;
-        return match signature.as_str() {
-            INDEX_LEAF => Ok(CellData::IndexLeaf(IndexLeaf::build(buf).unwrap())),
-            FAST_LEAF => Ok(CellData::FastLeaf(FastLeaf::build(buf).unwrap())),
-            HASH_LEAF => Ok(CellData::HashLeaf(HashLeaf::build(buf).unwrap())),
-            INDEX_ROOT => Ok(CellData::IndexRoot(IndexRoot::build(buf).unwrap())),
-            NAMED_KEY => Ok(CellData::NamedKey(NamedKey::build(buf).unwrap())),
-            VALUE_KEY => Ok(CellData::ValueKey(ValueKey::build(buf).unwrap())),
-            KEY_SECURITY => Ok(CellData::SecurityKey(SecurityKey::build(buf).unwrap())),
-            DATA_BLOCK => Ok(CellData::DataBlock(DataBlock::build(buf).unwrap())),
+        let sig_bytes = read_arr(buf, 2);
+        let sig = std::str::from_utf8(&*sig_bytes).map_err(|e| HiveParseError)?;
+        return match sig {
+            INDEX_LEAF_SIG => Ok(CellData::IndexLeaf(IndexLeaf::build(buf).unwrap())),
+            FAST_LEAF_SIG => Ok(CellData::FastLeaf(FastLeaf::build(buf).unwrap())),
+            HASH_LEAF_SIG => Ok(CellData::HashLeaf(HashLeaf::build(buf).unwrap())),
+            INDEX_ROOT_SIG => Ok(CellData::IndexRoot(IndexRoot::build(buf).unwrap())),
+            NAMED_KEY_SIG => Ok(CellData::NamedKey(NamedKey::build(buf).unwrap())),
+            VALUE_KEY_SIG => Ok(CellData::ValueKey(ValueKey::build(buf).unwrap())),
+            KEY_SECURITY_SIG => Ok(CellData::SecurityKey(SecurityKey::build(buf).unwrap())),
+            DATA_BLOCK_SIG => Ok(CellData::DataBlock(DataBlock::build(buf).unwrap())),
             invalid => Err(HiveParseError),
         };
     }
@@ -350,7 +331,6 @@ impl CellData {
 
 impl IndexLeaf {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = INDEX_LEAF.to_string();
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -359,7 +339,6 @@ impl IndexLeaf {
             });
         }
         Ok(IndexLeaf {
-            signature,
             number_of_elements,
             elements,
         })
@@ -368,17 +347,15 @@ impl IndexLeaf {
 
 impl FastLeaf {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = FAST_LEAF.to_string();
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
             elements.push(FastLeafElement {
                 key_node_offset: buf.get_u32_le(),
-                name_hint: read_ascii_string(buf, 4).unwrap(),
+                name_hint: read_arr(buf, 4),
             });
         }
         Ok(FastLeaf {
-            signature,
             number_of_elements,
             elements,
         })
@@ -387,7 +364,6 @@ impl FastLeaf {
 
 impl HashLeaf {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = HASH_LEAF.to_string();
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -397,7 +373,6 @@ impl HashLeaf {
             });
         }
         Ok(HashLeaf {
-            signature,
             number_of_elements,
             elements,
         })
@@ -406,7 +381,6 @@ impl HashLeaf {
 
 impl IndexRoot {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = INDEX_ROOT.to_string();
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -415,7 +389,6 @@ impl IndexRoot {
             });
         }
         Ok(IndexRoot {
-            signature,
             number_of_elements,
             elements,
         })
@@ -424,7 +397,6 @@ impl IndexRoot {
 
 impl NamedKey {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = NAMED_KEY.to_string();
         let flags = buf.get_u16_le();
         let last_written_timestamp = buf.get_u64_le();
         let access_bits = buf.get_u32_le();
@@ -444,12 +416,9 @@ impl NamedKey {
         let work_var = buf.get_u32_le();
         let key_name_length = buf.get_u16_le();
         let class_name_length = buf.get_u16_le();
-
-        //dbg!(key_name_length);
-        let key_name_string = read_ascii_string(buf, key_name_length as usize).unwrap();
+        let key_name = read_arr(buf, key_name_length as usize);
 
         Ok(NamedKey {
-            signature,
             flags,
             last_written_timestamp,
             access_bits,
@@ -462,8 +431,6 @@ impl NamedKey {
             key_values_list_offset,
             key_security_offset,
             class_name_offset,
-            // Has been split starting from Windows Vista, Windows Server 2003 SP2, and Windows XP SP3
-            // See specification
             largest_subkey_name_length,
             largest_subkey_class_name_length,
             largest_value_name_length,
@@ -471,52 +438,34 @@ impl NamedKey {
             work_var,
             key_name_length,
             class_name_length,
-            key_name_string,
+            key_name,
         })
-    }
-
-    pub fn key_name(&self) -> &str {
-        &self.key_name_string
     }
 }
 
 impl ValueKey {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = VALUE_KEY.to_string();
         let name_length = buf.get_u16_le();
         let data_size = buf.get_u32_le();
         let data_offset = buf.get_u32_le();
         let data_type = buf.get_u32_le();
         let flags = buf.get_u16_le();
         let spare = buf.get_u16_le();
-        let value_name_string = read_ascii_string(buf, name_length as usize)
-            .map_err(|err| {
-                dbg!(name_length);
-                dbg!(data_size);
-                dbg!(data_offset);
-                dbg!(data_type);
-                dbg!(flags);
-                dbg!(spare);
-                err
-            })
-            .unwrap_or("ERROR".to_string());
+        let value_name = read_arr(buf, name_length as usize);
         Ok(ValueKey {
-            signature,
             name_length,
             data_size,
             data_offset,
             data_type,
             flags,
             spare,
-            value_name_string,
+            value_name,
         })
     }
 }
 
 impl SecurityKey {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = KEY_SECURITY.to_string();
-
         // Skip unknown 2 bytes
         buf.advance(2);
 
@@ -524,49 +473,34 @@ impl SecurityKey {
         let next_security_key_offset = buf.get_u32_le();
         let reference_count = buf.get_u32_le();
         let nt_security_descriptor_size = buf.get_u32_le();
-
-        // Skip nt security descriptor...
-        buf.advance(nt_security_descriptor_size as usize);
+        let nt_security_descriptor = read_arr(buf, nt_security_descriptor_size as usize);
 
         Ok(SecurityKey {
-            signature,
             previous_security_key_offset,
             next_security_key_offset,
             reference_count,
             nt_security_descriptor_size,
+            nt_security_descriptor,
         })
     }
 }
 
 impl DataBlock {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
-        let signature = DATA_BLOCK.to_string();
         let number_of_segments = buf.get_u16_le();
         let data_block_list_offset = buf.get_u32_le();
-        let padding = buf.get_u32_le();
+        let _padding = buf.get_u32_le();
         Ok(DataBlock {
-            signature,
             number_of_segments,
             data_block_list_offset,
         })
     }
 }
 
-fn read_ascii_string(buf: &mut impl Buf, length: usize) -> Result<String, FromUtf8Error> {
-    let mut result = vec![];
+fn read_arr(buf: &mut impl Buf, length: usize) -> Vec<u8> {
+    let mut result = Vec::with_capacity(length);
     for _ in 0..length {
         result.push(buf.get_u8());
     }
-    String::from_utf8(result.to_ascii_lowercase())
-}
-
-fn read_utf16_le_string(
-    buf: &mut impl Buf,
-    length: usize,
-) -> Result<WString<LittleEndian>, Utf16Error> {
-    let mut result = vec![];
-    for _ in 0..length {
-        result.push(buf.get_u8());
-    }
-    WString::from_utf16le(result)
+    result
 }
