@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 bytes = { version = "1.4.0", features = ["serde"] }
 utf16string = "0.2.0"
+rayon = "1.7"

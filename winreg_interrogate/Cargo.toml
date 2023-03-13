@@ -9,4 +9,3 @@ edition = "2021"
 winreg_common = { path = "../winreg_common" }
 bytes = { version = "1.4.0", features = ["serde"] }
 utf16string = "0.2.0"
-rayon = "1.7"

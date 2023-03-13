@@ -1,6 +1,7 @@
-use bytes::Buf;
-use std::string::FromUtf8Error;
-use utf16string::{LittleEndian, Utf16Error, WStr, WString};
+use bytes::{Buf, Bytes};
+use rayon::iter::IntoParallelRefMutIterator;
+use rayon::iter::ParallelIterator;
+use rayon::ThreadPoolBuilder;
 
 const HIVE_HEADER_SIZE: usize = 32;
 const HIVE_BASE_BLOCK_SIG: &str = "regf";
@@ -179,16 +180,51 @@ pub struct DataBlock {
 pub struct HiveParseError;
 
 impl HivePrimaryFile {
-    pub fn new(base_block: HiveBaseBlock, hive_bins: Vec<HiveBin>) -> Self {
-        HivePrimaryFile {
+    fn build(mut buf: Bytes) -> Result<Self, HiveParseError> {
+        let start = buf.remaining();
+
+        let base_block = HiveBaseBlock::build(&mut buf)?;
+
+        let mut bin_blocks = vec![];
+        let mut offset = 0;
+        while start > offset {
+            let hive_bin_header = HiveBinHeader::build(&mut &buf[offset..offset + 32]).unwrap();
+            if offset + hive_bin_header.size() as usize >= buf.len() {
+                break;
+            }
+            bin_blocks.push(&buf[offset..offset + 32 + hive_bin_header.size() as usize]);
+            offset += hive_bin_header.size() as usize;
+        }
+
+        // todo - configurable
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(16)
+            .build()
+            .unwrap();
+
+        let hive_bins = pool.install(|| {
+            bin_blocks
+                .par_iter_mut()
+                .map(|bin| {
+                    let mut cells: Vec<HiveBinCell> = vec![];
+                    let header = HiveBinHeader::build(bin).unwrap();
+                    while let Some(cell) = HiveBinCell::build(bin) {
+                        cells.push(cell);
+                    }
+                    return HiveBin::new(header, cells);
+                })
+                .collect()
+        });
+
+        Ok(HivePrimaryFile {
             base_block,
             hive_bins,
-        }
+        })
     }
 }
 
 impl HiveBin {
-    pub fn new(header: HiveBinHeader, cells: Vec<HiveBinCell>) -> Self {
+    fn new(header: HiveBinHeader, cells: Vec<HiveBinCell>) -> Self {
         HiveBin { header, cells }
     }
 }
@@ -242,7 +278,7 @@ impl HiveBaseBlock {
 }
 
 impl HiveBinHeader {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let sig = &*read_arr(buf, 4);
         if !(sig == HIVE_BIN_HEADER_SIG.as_bytes()) {
             return Err(HiveParseError);
@@ -273,7 +309,7 @@ impl HiveBinHeader {
 }
 
 impl HiveBinCell {
-    pub fn build(buf: &mut impl Buf) -> Option<Self> {
+    fn build(buf: &mut impl Buf) -> Option<Self> {
         loop {
             let data_start_pos = buf.remaining();
             if data_start_pos - HIVE_HEADER_SIZE == 0 {
@@ -312,9 +348,9 @@ impl HiveBinCell {
 }
 
 impl CellData {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let sig_bytes = read_arr(buf, 2);
-        let sig = std::str::from_utf8(&*sig_bytes).map_err(|e| HiveParseError)?;
+        let sig = std::str::from_utf8(&*sig_bytes).map_err(|_e| HiveParseError)?;
         return match sig {
             INDEX_LEAF_SIG => Ok(CellData::IndexLeaf(IndexLeaf::build(buf).unwrap())),
             FAST_LEAF_SIG => Ok(CellData::FastLeaf(FastLeaf::build(buf).unwrap())),
@@ -324,13 +360,13 @@ impl CellData {
             VALUE_KEY_SIG => Ok(CellData::ValueKey(ValueKey::build(buf).unwrap())),
             KEY_SECURITY_SIG => Ok(CellData::SecurityKey(SecurityKey::build(buf).unwrap())),
             DATA_BLOCK_SIG => Ok(CellData::DataBlock(DataBlock::build(buf).unwrap())),
-            invalid => Err(HiveParseError),
+            _invalid => Err(HiveParseError),
         };
     }
 }
 
 impl IndexLeaf {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -346,7 +382,7 @@ impl IndexLeaf {
 }
 
 impl FastLeaf {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -363,7 +399,7 @@ impl FastLeaf {
 }
 
 impl HashLeaf {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -380,7 +416,7 @@ impl HashLeaf {
 }
 
 impl IndexRoot {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let number_of_elements = buf.get_u16_le();
         let mut elements = vec![];
         for _ in 0..number_of_elements {
@@ -396,7 +432,7 @@ impl IndexRoot {
 }
 
 impl NamedKey {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let flags = buf.get_u16_le();
         let last_written_timestamp = buf.get_u64_le();
         let access_bits = buf.get_u32_le();
@@ -444,7 +480,7 @@ impl NamedKey {
 }
 
 impl ValueKey {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let name_length = buf.get_u16_le();
         let data_size = buf.get_u32_le();
         let data_offset = buf.get_u32_le();
@@ -465,7 +501,7 @@ impl ValueKey {
 }
 
 impl SecurityKey {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         // Skip unknown 2 bytes
         buf.advance(2);
 
@@ -486,7 +522,7 @@ impl SecurityKey {
 }
 
 impl DataBlock {
-    pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
+    fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let number_of_segments = buf.get_u16_le();
         let data_block_list_offset = buf.get_u32_le();
         let _padding = buf.get_u32_le();
@@ -495,6 +531,10 @@ impl DataBlock {
             data_block_list_offset,
         })
     }
+}
+
+pub fn parse_registry(bytes: Bytes) -> Result<HivePrimaryFile, HiveParseError> {
+    HivePrimaryFile::build(bytes)
 }
 
 fn read_arr(buf: &mut impl Buf, length: usize) -> Vec<u8> {
