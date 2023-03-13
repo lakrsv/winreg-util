@@ -51,7 +51,7 @@ fn export_key(root: &RootKey, sub_key: String, mut output_dir: PathBuf) -> Resul
     );
 
     let output = Command::new("cmd")
-        .args(&["/C", &command])
+        .args(["/C", &command])
         .output()
         .map_err(|err| ExportError {
             msg: err.to_string(),

@@ -21,14 +21,12 @@ fn run_export(args: ExportArgs) -> io::Result<()> {
         return Ok(());
     }
 
-    fs::create_dir_all(&export_path).expect(&*format!(
-        "Failed creating export directory: {}",
-        &export_path.display()
-    ));
+    fs::create_dir_all(&export_path).unwrap_or_else(|_| panic!("Failed creating export directory: {}",
+        &export_path.display()));
 
     println!("Exporting registry keys to {}", &export_path.display());
 
-    match export(export_keys, PathBuf::from(export_path)) {
+    match export(export_keys, export_path) {
         Ok(_) => {
             println!("Export completed")
         }

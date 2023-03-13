@@ -204,7 +204,7 @@ impl HivePrimaryFile {
                 while let Some(cell) = HiveBinCell::build(bin) {
                     cells.push(cell);
                 }
-                return HiveBin::new(header, cells);
+                HiveBin::new(header, cells)
             })
             .collect();
 
@@ -224,7 +224,7 @@ impl HiveBin {
 impl HiveBaseBlock {
     pub fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let sig = &*read_arr(buf, 4);
-        if !(sig == HIVE_BASE_BLOCK_SIG.as_bytes()) {
+        if sig != HIVE_BASE_BLOCK_SIG.as_bytes() {
             return Err(HiveParseError);
         }
         let primary_sequence_number = buf.get_u32_le();
@@ -272,7 +272,7 @@ impl HiveBaseBlock {
 impl HiveBinHeader {
     fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let sig = &*read_arr(buf, 4);
-        if !(sig == HIVE_BIN_HEADER_SIG.as_bytes()) {
+        if sig != HIVE_BIN_HEADER_SIG.as_bytes() {
             return Err(HiveParseError);
         }
         let offset = buf.get_u32_le();
@@ -315,7 +315,7 @@ impl HiveBinCell {
                 Ok(data) => {
                     let end_pos = buf.remaining();
                     let walked = data_start_pos - end_pos;
-                    let advance = size.abs() as usize - walked;
+                    let advance = size.unsigned_abs() as usize - walked;
                     buf.advance(advance);
                     return Some(HiveBinCell {
                         size,
@@ -326,7 +326,7 @@ impl HiveBinCell {
                     // Skip faulty cell(?) -- TODO: Is it really a bad cell though?
                     let end_pos = buf.remaining();
                     let walked = data_start_pos - end_pos;
-                    let advance = size.abs() as usize - walked;
+                    let advance = size.unsigned_abs() as usize - walked;
                     buf.advance(advance);
                     continue;
                 }
@@ -342,8 +342,8 @@ impl HiveBinCell {
 impl CellData {
     fn build(buf: &mut impl Buf) -> Result<Self, HiveParseError> {
         let sig_bytes = read_arr(buf, 2);
-        let sig = std::str::from_utf8(&*sig_bytes).map_err(|_e| HiveParseError)?;
-        return match sig {
+        let sig = std::str::from_utf8(&sig_bytes).map_err(|_e| HiveParseError)?;
+        match sig {
             INDEX_LEAF_SIG => Ok(CellData::IndexLeaf(IndexLeaf::build(buf).unwrap())),
             FAST_LEAF_SIG => Ok(CellData::FastLeaf(FastLeaf::build(buf).unwrap())),
             HASH_LEAF_SIG => Ok(CellData::HashLeaf(HashLeaf::build(buf).unwrap())),
@@ -353,7 +353,7 @@ impl CellData {
             KEY_SECURITY_SIG => Ok(CellData::SecurityKey(SecurityKey::build(buf).unwrap())),
             DATA_BLOCK_SIG => Ok(CellData::DataBlock(DataBlock::build(buf).unwrap())),
             _invalid => Err(HiveParseError),
-        };
+        }
     }
 }
 
