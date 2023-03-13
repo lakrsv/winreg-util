@@ -1,7 +1,7 @@
 use bytes::{Buf, Bytes};
 use rayon::iter::IntoParallelRefMutIterator;
 use rayon::iter::ParallelIterator;
-use rayon::ThreadPoolBuilder;
+use rayon::ThreadPool;
 
 const HIVE_HEADER_SIZE: usize = 32;
 const HIVE_BASE_BLOCK_SIG: &str = "regf";
@@ -196,25 +196,17 @@ impl HivePrimaryFile {
             offset += hive_bin_header.size() as usize;
         }
 
-        // todo - configurable
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(16)
-            .build()
-            .unwrap();
-
-        let hive_bins = pool.install(|| {
-            bin_blocks
-                .par_iter_mut()
-                .map(|bin| {
-                    let mut cells: Vec<HiveBinCell> = vec![];
-                    let header = HiveBinHeader::build(bin).unwrap();
-                    while let Some(cell) = HiveBinCell::build(bin) {
-                        cells.push(cell);
-                    }
-                    return HiveBin::new(header, cells);
-                })
-                .collect()
-        });
+        let hive_bins = bin_blocks
+            .par_iter_mut()
+            .map(|bin| {
+                let mut cells: Vec<HiveBinCell> = vec![];
+                let header = HiveBinHeader::build(bin).unwrap();
+                while let Some(cell) = HiveBinCell::build(bin) {
+                    cells.push(cell);
+                }
+                return HiveBin::new(header, cells);
+            })
+            .collect();
 
         Ok(HivePrimaryFile {
             base_block,
@@ -533,8 +525,8 @@ impl DataBlock {
     }
 }
 
-pub fn parse_registry(bytes: Bytes) -> Result<HivePrimaryFile, HiveParseError> {
-    HivePrimaryFile::build(bytes)
+pub fn parse_registry(bytes: Bytes, pool: &ThreadPool) -> Result<HivePrimaryFile, HiveParseError> {
+    pool.install(|| HivePrimaryFile::build(bytes))
 }
 
 fn read_arr(buf: &mut impl Buf, length: usize) -> Vec<u8> {
