@@ -4,6 +4,7 @@ use std::io::stdin;
 use std::path::Path;
 use std::time::Instant;
 use winreg_common::hive::{HiveBaseBlock, HiveBinCell, HiveBinHeader};
+use rayon::prelude::*;
 
 pub fn test() {
     let start = Instant::now();
@@ -26,49 +27,49 @@ fn parse_registry(){
         &base_block
     );
 
-    let mut cells = vec![];
     let mut blocks = 0;
 
-    // Parallelise each block with rayon?
-    loop {
-        blocks += 1;
-        let hive_bin_start_pos = bytes.remaining();
-        if hive_bin_start_pos == 0 {
+    let mut my_blocks = vec![];
+    let mut offset = 0;
+    while start > offset {
+        //println!("Getting block!");
+        let hive_bin_header = HiveBinHeader::build(&mut &bytes[offset..offset + 32]).unwrap();
+        if offset + hive_bin_header.size() as usize >= bytes.len() {
             break;
         }
-        let hive_bin_header = HiveBinHeader::build(&mut bytes).unwrap();
-        // println!("");
-        // println!("Hive Bin Header");
-        // println!("{:?}", hive_bin_header);
-        // println!("");
-        //println!("Bytes read: {}", start - bytes.remaining());
-        while let Some(cell) =
-            HiveBinCell::build(&mut bytes, hive_bin_start_pos, hive_bin_header.size())
-        {
-            cells.push(cell);
-            let bytes_read = start - bytes.remaining();
-            let hive_bin_bytes_read = hive_bin_start_pos - bytes.remaining();
-
-            // println!("Bytes read: {}", bytes_read);
-            // println!("Hive Bin Bytes read {}", hive_bin_bytes_read);
-            //
-            // println!("Hive Bin Cell");
-            // println!("{:?}", cell);
-            // println!("");
-
-            // if let CellData::NamedKey(key) = cell.cell_data() {
-            //     // Got Key Node
-            //     println!("Key Node Name: {}", key.key_name());
-            // }
-        }
+        my_blocks.push(&bytes[offset..offset + 32 + hive_bin_header.size() as usize]);
+        offset += hive_bin_header.size() as usize;
     }
-    println!("Parsed the entire registry");
-    println!("Got a total of {} hive bin blocks", blocks);
-    println!("Got a total of {} cells", cells.len());
-    // let mut buffer = String::new();
-    // let stdin = io::stdin();
-    // for cell in cells {
-    //     println!("{:?}", cell);
-    //     stdin.read_line(&mut buffer).unwrap();
+    let block_count = my_blocks.len();
+
+    let mut my_cells = my_blocks.par_iter_mut()
+        .map(|bin| {
+            let start_pos = bin.remaining();
+            let mut cells: Vec<HiveBinCell> = vec![];
+            let header = HiveBinHeader::build(bin).unwrap();
+            while let Some(cell) = HiveBinCell::build(bin, start_pos, header.size()){
+                cells.push(cell);
+            }
+            return cells;
+        })
+        .flatten()
+        .collect::<Vec<HiveBinCell>>();
+
+    // loop {
+    //     let hive_bin_start_pos = bytes.remaining();
+    //     if hive_bin_start_pos == 0 {
+    //         break;
+    //     }
+    //     blocks += 1;
+    //     let hive_bin_header = HiveBinHeader::build(&mut bytes).unwrap();
+    //     while let Some(cell) =
+    //         HiveBinCell::build(&mut bytes, hive_bin_start_pos, hive_bin_header.size())
+    //     {
+    //         cells.push(cell);
+    //     }
     // }
+    println!("Parsed the entire registry");
+    println!("Got a total of {} hive bin blocks", block_count);
+    println!("Got a total of {} cells", my_cells.len());
+    //println!("Got a total of {} cells", cells.len());
 }
