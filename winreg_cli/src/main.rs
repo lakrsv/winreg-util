@@ -38,7 +38,7 @@ fn run_export(args: ExportArgs) -> io::Result<()> {
     Ok(())
 }
 
-fn run_interrogate(args: InterrogateArgs) -> io::Result<()> {
+fn run_interrogate(_args: InterrogateArgs) -> io::Result<()> {
     winreg_interrogate::test();
     Ok(())
 }
