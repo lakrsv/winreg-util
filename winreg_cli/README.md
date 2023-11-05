@@ -38,3 +38,6 @@ cargo run export -o hive -k HKLM\\SOFTWARE -k HKLM\\SYSTEM
 
 ## Interrogate Quick Start (WIP)
 The `interrogate` command is used to interrogate the windows registry, finding specific windows registry keys and their associated values. 
+
+# Known Issues
+The `export` command can fail on Windows 11 right now, unclear why.
