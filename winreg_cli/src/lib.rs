@@ -32,7 +32,11 @@ pub struct ExportArgs {
 }
 
 #[derive(Args, Debug, Clone)]
-pub struct InterrogateArgs {}
+pub struct InterrogateArgs {
+    /// The input hive files to interrogate
+    #[arg(short, long)]
+    input_hive: Vec<String>
+}
 
 impl ExportArgs {
     pub fn get_output_path(&self) -> &str {

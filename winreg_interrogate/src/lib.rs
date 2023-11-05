@@ -19,7 +19,7 @@ pub fn test() {
 }
 
 fn run_parse_registry(pool: &ThreadPool) {
-    let bytes = Bytes::from(fs::read(Path::new("C://Users/lakrs/Documents/CreativeWork/RustProjects/winreg_util/export-test/HKEY_LOCAL_MACHINE-SOFTWARE.dat")).unwrap());
+    let bytes = Bytes::from(fs::read(Path::new("C://Users/Lars/Documents/CreativeWork/Projects/Rust/winreg-util/hive/HKEY_LOCAL_MACHINE-SOFTWARE.dat")).unwrap());
     let hive_primary_file = parse_registry(bytes, pool).unwrap();
     println!("Parsed the entire registry");
 }
