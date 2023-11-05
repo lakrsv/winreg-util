@@ -479,7 +479,7 @@ impl ValueKey {
         let data_type = buf.get_u32_le();
         let flags = buf.get_u16_le();
         let spare = buf.get_u16_le();
-        let value_name = read_arr(buf, name_length as usize);
+        let value_name = if name_length == 0 { "(default)".as_bytes().to_owned() } else {read_arr(buf, name_length as usize)};
         Ok(ValueKey {
             name_length,
             data_size,
