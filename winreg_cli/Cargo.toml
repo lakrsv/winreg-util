@@ -2,7 +2,6 @@
 name = "winreg_cli"
 version = "0.1.0"
 edition = "2021"
-build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,6 +11,3 @@ winreg_export = { path = "../winreg_export" }
 winreg_interrogate = { path = "../winreg_interrogate" }
 clap = { version = "4.1.8", features = ["derive", "unstable-v5"] }
 itertools = "0.10.5"
-
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1.12"
